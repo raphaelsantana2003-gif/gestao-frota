@@ -1,4 +1,4 @@
-[readme_md_do_projeto_frotam2 (1).md](https://github.com/user-attachments/files/35435420/readme_md_do_projeto_frotam2.1.md)[Uploading rea# 🚌 FrotaM2 — Sistema de Gestão de Frota de Ônibus (Grupo G13)
+[readme_md_do_projeto_frotam2.md](https://github.com/user-attachments/files/35436312/readme_md_do_projeto_frotam2.md)[Uploading readme_# 🚌 FrotaM2 — Sistema de Gestão de Frota de Ônibus (Grupo G13)
 
 Aplicação web e API REST para gestão operacional de frota de ônibus urbanos, com monitoramento de telemetria GPS em tempo real, alocação por linhas, disparo de alertas de manutenção em cadeia via padrão **Decorator** (Java puro), controle de acesso baseado em papéis (**Spring Security**), persistência NoSQL no **MongoDB Atlas** e deploy contínuo em container **Docker** no **Render**.
 
@@ -335,4 +335,4 @@ export MONGODB_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/db_fro
 
 1. No **MongoDB Atlas → Data Explorer**, expanda `Cluster0` e execute **Drop Database** apenas em `db_frota_onibus`.
 2. No **Render** (ou localmente), acione **Manual Deploy → Deploy latest commit** (ou reinicie o servidor).
-3. Ao subir e detectar a coleção vazia, o `DataSeeder` recria automaticamente o cenário inicial de demonstração.dme_md_do_projeto_frotam2 (1).md…]()
+3. Ao subir e detectar a coleção vazia, o `DataSeeder` recria automaticamente o cenário inicial de demonstração.md_do_projeto_frotam2.md…]()
