@@ -1,5 +1,4 @@
-[readme_md_do_projeto_frotam2.md](https://github.com/user-attachments/files/35435291/readme_md_do_projeto_frotam2.md)
-# 🚌 FrotaM2 — Sistema de Gestão de Frota de Ônibus (Grupo G13)
+[readme_md_do_projeto_frotam2 (1).md](https://github.com/user-attachments/files/35435420/readme_md_do_projeto_frotam2.1.md)[Uploading rea# 🚌 FrotaM2 — Sistema de Gestão de Frota de Ônibus (Grupo G13)
 
 Aplicação web e API REST para gestão operacional de frota de ônibus urbanos, com monitoramento de telemetria GPS em tempo real, alocação por linhas, disparo de alertas de manutenção em cadeia via padrão **Decorator** (Java puro), controle de acesso baseado em papéis (**Spring Security**), persistência NoSQL no **MongoDB Atlas** e deploy contínuo em container **Docker** no **Render**.
 
@@ -157,6 +156,10 @@ classDiagram
         +notificar(Onibus onibus, String motivo) List~String~
     }
 
+    class MontadorNotificador {
+        +montar(boolean email, boolean sms) NotificadorManutencao
+    }
+
     class OnibusRepositorio {
         <<interface>>
         +buscarPorId(String id) Optional~Onibus~
@@ -187,23 +190,24 @@ classDiagram
     class MongoLinhaAdapter
 
     Onibus "1" *-- "1" Placa : possui
-    Onibus "1" *-- "1" DispositivoTelemetria : telemetria 1:1
-    LinhaOnibus "0..1" -- "0..*" Onibus : alocacao 1:N
-    FrotaAlocada o-- "0..*" Onibus : encapsula
+    Onibus "1" *-- "1" DispositivoTelemetria : telemetria
+    LinhaOnibus "0..1" -- "0..*" Onibus : aloca
+    FrotaAlocada "1" o-- "0..*" Onibus : encapsula
 
-    NotificadorPainelCentral ..|> NotificadorManutencao
-    NotificadorDecorator ..|> NotificadorManutencao
-    NotificadorDecorator o-- "1" NotificadorManutencao : envolve
-    EmailDecorator --|> NotificadorDecorator
-    SmsDecorator --|> NotificadorDecorator
-    EmailDecorator --> EnviadorEmail : usa (DIP)
+    NotificadorManutencao <|.. NotificadorPainelCentral
+    NotificadorManutencao <|.. NotificadorDecorator
+    NotificadorDecorator "1" o-- "1" NotificadorManutencao : envolve
+    NotificadorDecorator <|-- EmailDecorator
+    NotificadorDecorator <|-- SmsDecorator
+    EmailDecorator --> EnviadorEmail : usa
+    MontadorNotificador ..> NotificadorManutencao : instancia
 
-    AbrirManutencaoUseCase --> OnibusRepositorio : depende (DIP)
+    AbrirManutencaoUseCase --> OnibusRepositorio : persiste
     AbrirManutencaoUseCase --> NotificadorManutencao : dispara
-    AbrirManutencaoUseCase ..> Onibus : comanda (Tell, Don't Ask)
+    AbrirManutencaoUseCase ..> Onibus : comanda
 
-    MongoOnibusAdapter ..|> OnibusRepositorio
-    MongoLinhaAdapter ..|> LinhaRepositorio
+    OnibusRepositorio <|.. MongoOnibusAdapter
+    LinhaRepositorio <|.. MongoLinhaAdapter
 ```
 
 ### 2. Diagrama de Sequência — Enviar Ônibus Superaquecido (`#2403`) para Manutenção
@@ -212,32 +216,32 @@ classDiagram
 sequenceDiagram
     autonumber
     actor Usuario as Gestor / Mecanico
-    participant Sec as Spring Security (RBAC)
+    participant Sec as Spring Security
     participant Ctrl as FrotaController
     participant UC as AbrirManutencaoUseCase
-    participant Repo as OnibusRepositorio (MongoDB)
-    participant Bus as Onibus (#2403)
+    participant Repo as OnibusRepositorio
+    participant Bus as Onibus 2403
     participant Sms as SmsDecorator
     participant Email as EmailDecorator
     participant Painel as NotificadorPainelCentral
 
-    Usuario->>Sec: POST /api/v1/onibus/bus-2403/manutencao (Basic Auth)
-    Sec->>Ctrl: Autenticado (ROLE_GESTOR ou ROLE_MECANICO)
+    Usuario->>Sec: POST /api/v1/onibus/bus-2403/manutencao
+    Sec->>Ctrl: Autenticado com RBAC
     Ctrl->>UC: executar("bus-2403", "Superaquecimento 108.5C")
     UC->>Repo: buscarPorId("bus-2403")
-    Repo-->>UC: retorna Onibus (#2403)
+    Repo-->>UC: retorna Onibus 2403
     UC->>Bus: enviarParaManutencao()
-    Note right of Bus: status = EM_MANUTENCAO<br/>linhaId = null
+    Note right of Bus: status = EM_MANUTENCAO e linhaId = null
     UC->>Repo: salvar(onibus)
-    Repo-->>UC: documento persistido no MongoDB Atlas
+    Repo-->>UC: persistido no MongoDB Atlas
     UC->>Sms: notificar(onibus, motivo)
     Sms->>Email: notificar(onibus, motivo)
     Email->>Painel: notificar(onibus, motivo)
-    Painel-->>Email: ["PAINEL CENTRAL: Onibus 2403..."]
-    Email-->>Sms: [Painel, "EMAIL -> garagem@viacaomogi.com.br..."]
-    Sms-->>UC: [Painel, Email, "SMS -> +55 11 99999-2403..."]
-    UC-->>Ctrl: lista com 3 notificacoes disparadas
-    Ctrl-->>Usuario: HTTP 200 OK (JSON com status atualizado + alertas)
+    Painel-->>Email: Alerta Painel Central
+    Email-->>Sms: Alerta Painel + Email
+    Sms-->>UC: Alerta Painel + Email + SMS
+    UC-->>Ctrl: lista com 3 notificacoes
+    Ctrl-->>Usuario: HTTP 200 OK com JSON atualizado
 ```
 
 ---
@@ -245,7 +249,7 @@ sequenceDiagram
 ## 📡 Endpoints da API REST (`/api/v1`)
 
 | Método | Endpoint | Permissão (RBAC) | Códigos HTTP | Descrição |
-| :---: | :--- | :--- | :---: | :--- |
+| :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/onibus` | `GESTOR`, `MECANICO` | `200`, `401` | Lista toda a frota com telemetria 1:1 e alerta de superaquecimento. |
 | `GET` | `/api/v1/linhas/{linhaId}/onibus` | `GESTOR`, `MECANICO` | `200`, `401` | Filtra veículos alocados na linha (relacionamento 1:N via `FrotaAlocada`). |
 | `POST` | `/api/v1/onibus` | Somente `GESTOR` | `201`, `400`, `403` | Cadastra novo ônibus validando a placa pelo Value Object `Placa`. |
@@ -267,10 +271,12 @@ A suíte `src/test/java/br/com/frota/FrotaTest.java` valida as regras críticas 
 
 Para executar a suíte de testes (não exige banco de dados nem internet):
 
-```bash
+```powershell
 # Windows (PowerShell)
 .\mvnw.cmd test
+```
 
+```bash
 # Linux / macOS
 ./mvnw test
 ```
@@ -280,36 +286,42 @@ Para executar a suíte de testes (não exige banco de dados nem internet):
 ## 💻 Como Executar Localmente
 
 ### Pré-requisitos
+
 * **Java 21 (JDK 21)** instalado
 * String de conexão válida do **MongoDB** (local ou MongoDB Atlas)
 
 ### Passo a passo
 
 1. Clone o repositório:
-   ```bash
-   git clone https://github.com/raphaelsantana2003-gif/gestao-frota.git
-   cd gestao-frota
-   ```
+
+```bash
+git clone https://github.com/raphaelsantana2003-gif/gestao-frota.git
+cd gestao-frota
+```
 
 2. Defina a variável de ambiente `MONGODB_URI` (nunca grave credenciais reais no `application.properties`):
-   ```powershell
-   # Windows (PowerShell)
-   $env:MONGODB_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/db_frota_onibus?retryWrites=true&w=majority"
-   ```
-   ```bash
-   # Linux / macOS
-   export MONGODB_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/db_frota_onibus?retryWrites=true&w=majority"
-   ```
+
+```powershell
+# Windows (PowerShell)
+$env:MONGODB_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/db_frota_onibus?retryWrites=true&w=majority"
+```
+
+```bash
+# Linux / macOS
+export MONGODB_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/db_frota_onibus?retryWrites=true&w=majority"
+```
 
 3. Inicie a aplicação:
-   ```powershell
-   # Windows
-   .\mvnw.cmd spring-boot:run
-   ```
-   ```bash
-   # Linux / macOS
-   ./mvnw spring-boot:run
-   ```
+
+```powershell
+# Windows
+.\mvnw.cmd spring-boot:run
+```
+
+```bash
+# Linux / macOS
+./mvnw spring-boot:run
+```
 
 4. Acesse no navegador:
    * Painel FrotaM2: `http://localhost:8080`
@@ -323,4 +335,4 @@ Para executar a suíte de testes (não exige banco de dados nem internet):
 
 1. No **MongoDB Atlas → Data Explorer**, expanda `Cluster0` e execute **Drop Database** apenas em `db_frota_onibus`.
 2. No **Render** (ou localmente), acione **Manual Deploy → Deploy latest commit** (ou reinicie o servidor).
-3. Ao subir e detectar a coleção vazia, o `DataSeeder` recria automaticamente o cenário inicial de demonstração.
+3. Ao subir e detectar a coleção vazia, o `DataSeeder` recria automaticamente o cenário inicial de demonstração.dme_md_do_projeto_frotam2 (1).md…]()
