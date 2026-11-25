@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FrotaM2 — Gestão de Frota de Ônibus (G13)</title>
+  <style>
+    :root {
+      --bg: #0f172a; --surface: #1e293b; --surface2: #273449; --border: #334155;
+      --text: #f8fafc; --muted: #94a3b8; --primary: #3b82f6; --success: #10b981;
+      --danger: #ef4444; --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Segoe UI", system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 16px 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    header h1 { font-size: 1.2rem; }
+    header p { font-size: 0.82rem; color: var(--muted); }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 20px 24px 48px; }
+    .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+    .btn {
+      border: none; border-radius: 8px; padding: 8px 14px; font-weight: 600;
+      font-size: 0.84rem; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-sm { padding: 6px 10px; font-size: 0.78rem; }
+    select, input, textarea {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 10px; font-size: 0.86rem;
+    }
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; min-width: 820px; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.86rem; }
+    th { background: #162033; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; }
+    .badge { padding: 4px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; display: inline-block; }
+    .st-EM_OPERACAO { background: rgba(16,185,129,0.18); color: #6ee7b7; }
+    .st-DISPONIVEL { background: rgba(59,130,246,0.18); color: #93c5fd; }
+    .st-EM_MANUTENCAO { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .hot { display: inline-block; margin-top: 4px; background: rgba(239,68,68,0.25); color: #fecaca; border: 1px solid var(--danger); font-size: 0.72rem; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .card h3 { font-size: 0.96rem; margin-bottom: 10px; }
+    .log-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-family: Consolas, monospace; font-size: 0.78rem; }
+    .c-ok { color: #6ee7b7; font-weight: 700; }
+    .c-err { color: #fca5a5; font-weight: 700; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(2,6,23,0.75); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+    .modal-bg.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 540px; padding: 20px; }
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .field label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+    .code-box { background: #0b1220; border: 1px solid var(--primary); color: #93c5fd; padding: 10px; border-radius: 8px; font-family: Consolas, monospace; font-size: 0.76rem; margin: 10px 0; word-break: break-all; }
+    #toast { position: fixed; right: 20px; bottom: 20px; z-index: 90; display: flex; flex-direction: column; gap: 8px; max-width: 380px; }
+    .toast-msg { background: var(--surface2); border-left: 4px solid var(--primary); padding: 11px 14px; border-radius: 8px; font-size: 0.84rem; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+    .toast-msg.ok { border-left-color: var(--success); }
+    .toast-msg.err { border-left-color: var(--danger); }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🚌 FrotaM2 — Gestão de Frota de Ônibus (Grupo G13 • Raphael Santana)</h1>
+    <p>Conectado em tempo real à API Spring Boot + MongoDB Atlas + Spring Security + Decorator Java</p>
+  </div>
+  <div class="controls">
+    <label style="font-size:0.82rem;">🔐 Perfil (Spring Security):
+      <select id="perfilSelect" onchange="avisarPerfil()">
+        <option value="gestor:gestor123">GESTOR (Acesso Total)</option>
+        <option value="mecanico:mecanico123">MECANICO (Leitura + Manutenção)</option>
+      </select>
+    </label>
+    <a class="btn btn-secondary btn-sm" href="/swagger-ui.html" target="_blank">📄 Abrir Swagger UI</a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="carregarFrota()">Todos os Ônibus</button>
+      <button class="btn btn-secondary btn-sm" onclick="carregarPorLinha('L01')">Linha L01 — E103 (1:N)</button>
+      <button class="btn btn-secondary btn-sm" onclick="carregarPorLinha('L02')">Linha L02 — C207 (1:N)</button>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="abrirModalNovo()">+ Cadastrar Ônibus (Testa Placa / RBAC)</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Prefixo / Placa</th>
+          <th>Modelo</th>
+          <th>Linha (1:N)</th>
+          <th>Telemetria GPS (1:1)</th>
+          <th>Status</th>
+          <th>Ações na API Real</th>
+        </tr>
+      </thead>
+      <tbody id="corpoTabela"><tr><td colspan="6">Carregando dados do MongoDB Atlas...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>✉️ Últimas Notificações Disparadas pelo Decorator Java</h3>
+      <div id="caixaNotificacoes"><p style="color:var(--muted); font-size:0.84rem;">Envie um ônibus para manutenção para ver os avisos empilhados aqui.</p></div>
+    </div>
+    <div class="card">
+      <h3>🌐 Monitor HTTP REST em Tempo Real</h3>
+      <div id="monitorHttp"><p style="color:var(--muted); font-size:0.84rem;">Aguardando chamadas...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MANUTENÇÃO -->
+<div class="modal-bg" id="modalManutencao">
+  <div class="modal">
+    <h3 id="tituloManutencao" style="margin-bottom:12px;">🔧 Enviar para Manutenção</h3>
+    <input type="hidden" id="manutencaoId" />
+    <div class="field"><label>Motivo</label><textarea id="manutencaoMotivo" rows="2">Superaquecimento crítico no motor (108.5°C)</textarea></div>
+    <div class="field"><label>E-mail da Garagem</label><input id="manutencaoEmail" value="garagem@viacaomogi.com.br" /></div>
+    <div class="field"><label>Telefone do Despachante (SMS)</label><input id="manutencaoTel" value="+55 11 99999-2403" /></div>
+    <div class="field">
+      <label>Camadas do Decorator (Base: NotificadorPainelCentral)</label>
+      <div style="display:flex; gap:14px; margin-top:4px; font-size:0.84rem;">
+        <label><input type="checkbox" id="chkEmail" checked onchange="atualizarPreview()" /> + EmailDecorator</label>
+        <label><input type="checkbox" id="chkSms" checked onchange="atualizarPreview()" /> + SmsDecorator</label>
+      </div>
+    </div>
+    <div class="code-box" id="previewDeco"></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modalManutencao')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarManutencao()">Confirmar &amp; Notificar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO ÔNIBUS -->
+<div class="modal-bg" id="modalNovo">
+  <div class="modal">
+    <h3 style="margin-bottom:12px;">🚌 Cadastrar Novo Ônibus</h3>
+    <div class="field"><label>Prefixo</label><input id="nPrefixo" value="2404" /></div>
+    <div class="field"><label>Placa (Teste digitar "ABC12" para ver 400 Bad Request)</label><input id="nPlaca" value="MOG5E04" /></div>
+    <div class="field"><label>Modelo</label><input id="nModelo" value="OF-1721 Torino" /></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-secondary" onclick="fecharModal('modalNovo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarNovo()">Salvar no MongoDB</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const logsHttp = [];
+
+function authHeader() {
+  return "Basic " + btoa(document.getElementById("perfilSelect").value);
+}
+
+function toast(texto, tipo = "ok") {
+  const el = document.createElement("div");
+  el.className = "toast-msg " + tipo;
+  el.textContent = texto;
+  document.getElementById("toast").appendChild(el);
+  setTimeout(() => el.remove(), 4500);
+}
+
+function logarHttp(metodo, rota, status, info) {
+  logsHttp.unshift({ hora: new Date().toLocaleTimeString("pt-BR"), metodo, rota, status, info });
+  document.getElementById("monitorHttp").innerHTML = logsHttp.slice(0, 12).map(l =>
+    `<div class="log-item">${l.hora} • <span class="${l.status < 300 ? 'c-ok' : 'c-err'}">${l.status}</span> <strong>${l.metodo}</strong> ${l.rota} — ${l.info}</div>`
+  ).join("");
+}
+
+function avisarPerfil() {
+  const p = document.getElementById("perfilSelect").value.split(":")[0].toUpperCase();
+  toast("Credencial ativa alterada para: " + p, "ok");
+}
+
+async function chamarApi(metodo, rota, corpo = null) {
+  const opcoes = {
+    method: metodo,
+    headers: { "Authorization": authHeader(), "Content-Type": "application/json" }
+  };
+  if (corpo) opcoes.body = JSON.stringify(corpo);
+
+  const resp = await fetch(rota, opcoes);
+  const texto = await resp.text();
+  let dados = null;
+  try { dados = texto ? JSON.parse(texto) : null; } catch { dados = { erro: texto }; }
+
+  const detalhe = resp.ok ? "Sucesso" : (dados?.erro || (resp.status === 403 ? "403 Forbidden (Sem permissão)" : "Erro HTTP"));
+  logarHttp(metodo, rota, resp.status, detalhe);
+
+  if (!resp.ok) throw new Error(`${resp.status}: ${detalhe}`);
+  return dados;
+}
+
+function desenharTabela(lista, tituloExtra = "") {
+  if (tituloExtra) toast(tituloExtra, "ok");
+  document.getElementById("corpoTabela").innerHTML = lista.map(o => `
+    <tr>
+      <td><strong>#${o.prefixo}</strong><br/><span style="color:var(--muted);font-family:Consolas,monospace;">${o.placa}</span></td>
+      <td>${o.modelo}</td>
+      <td>${o.linhaId || '<span style="color:var(--muted);">Sem linha</span>'}</td>
+      <td>
+        <span style="font-family:Consolas,monospace;font-size:0.78rem;">${o.telemetria.codigoSerial}</span><br/>
+        <span style="color:var(--muted);font-size:0.78rem;">Motor: ${o.telemetria.temperaturaMotor}°C • Comb.: ${o.telemetria.percentualCombustivel}%</span>
+        ${o.superaquecendo ? `<br/><span class="hot">🔥 SUPERAQUECENDO (${o.telemetria.temperaturaMotor}°C)</span>` : ""}
+      </td>
+      <td><span class="badge st-${o.statusOperacional}">${o.statusOperacional.replace("_", " ")}</span></td>
+      <td style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="alocarLinha('${o.id}', 'L01')">🗺️ Alocar L01</button>
+        <button class="btn btn-danger btn-sm" onclick="abrirModalManutencao('${o.id}', '${o.prefixo}', '${o.placa}')">🔧 Manutenção</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function carregarFrota() {
+  try {
+    const lista = await chamarApi("GET", "/api/v1/onibus");
+    desenharTabela(lista);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function carregarPorLinha(linhaId) {
+  try {
+    const dados = await chamarApi("GET", `/api/v1/linhas/${linhaId}/onibus`);
+    desenharTabela(dados.onibus, `Linha ${linhaId}: ${dados.totalEmOperacao} ônibus em operação (via FrotaAlocada)`);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function alocarLinha(onibusId, linhaId) {
+  try {
+    await chamarApi("PATCH", `/api/v1/onibus/${onibusId}/alocacao`, { linhaId });
+    toast(`Ônibus ${onibusId} alocado na linha ${linhaId}!`, "ok");
+    carregarFrota();
+  } catch (e) { toast(e.message, "err"); }
+}
+
+function fecharModal(id) { document.getElementById(id).classList.remove("open"); }
+
+function abrirModalManutencao(id, prefixo, placa) {
+  document.getElementById("manutencaoId").value = id;
+  document.getElementById("tituloManutencao").textContent = `🔧 Manutenção — Ônibus #${prefixo} (${placa})`;
+  atualizarPreview();
+  document.getElementById("modalManutencao").classList.add("open");
+}
+
+function atualizarPreview() {
+  let exp = "new NotificadorPainelCentral()";
+  if (document.getElementById("chkEmail").checked) exp = `new EmailDecorator(${exp}, enviadorEmail, email)`;
+  if (document.getElementById("chkSms").checked) exp = `new SmsDecorator(${exp}, telefone)`;
+  document.getElementById("previewDeco").textContent = `// Pilha executada no Java (sem framework):\nNotificadorManutencao pilha = ${exp};`;
+}
+
+async function confirmarManutencao() {
+  const id = document.getElementById("manutencaoId").value;
+  const canaisExtras = [];
+  if (document.getElementById("chkEmail").checked) canaisExtras.push("EMAIL");
+  if (document.getElementById("chkSms").checked) canaisExtras.push("SMS");
+  const email = document.getElementById("manutencaoEmail").value;
+  const motivo = document.getElementById("manutencaoMotivo").value;
+
+  try {
+    const resp = await chamarApi("POST", `/api/v1/onibus/${id}/manutencao`, {
+      motivo, canaisExtras, emailGaragem: email,
+      telefoneDespachante: document.getElementById("manutencaoTel").value
+    });
+    fecharModal("modalManutencao");
+    toast(`Manutenção aberta! ${resp.notificacoesDisparadas.length} canais disparados.`, "ok");
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent("[MANUTENÇÃO] " + id)}&body=${encodeURIComponent(resp.notificacoesDisparadas.join("\n"))}`;
+    document.getElementById("caixaNotificacoes").innerHTML = `
+      <div style="font-size:0.82rem; margin-bottom:10px;">
+        ${resp.notificacoesDisparadas.map(n => `<div class="log-item">• ${n}</div>`).join("")}
+      </div>
+      <a class="btn btn-primary btn-sm" href="${gmailUrl}" target="_blank">✉️ Abrir Alerta no Gmail</a>
+    `;
+    carregarFrota();
+  } catch (e) { toast(e.message, "err"); }
+}
+
+function abrirModalNovo() { document.getElementById("modalNovo").classList.add("open"); }
+
+async function confirmarNovo() {
+  const prefixo = document.getElementById("nPrefixo").value.trim();
+  try {
+    await chamarApi("POST", "/api/v1/onibus", {
+      prefixo, placa: document.getElementById("nPlaca").value.trim(),
+      chassi: "9BM384067NB00" + prefixo, marca: "Mercedes-Benz",
+      modelo: document.getElementById("nModelo").value.trim(),
+      anoFabricacao: 2025, capacidadePassageiros: 84, quilometragem: 1000,
+      tipoCombustivel: "DIESEL", acessibilidadeCompleta: true, arCondicionado: true,
+      telemetria: { codigoSerial: "GPS-" + prefixo, identificadorImei: "35693800" + prefixo, latitude: -23.52, longitude: -46.18, temperaturaMotor: 80.0, percentualCombustivel: 100 }
+    });
+    fecharModal("modalNovo");
+    toast(`201 Created — Ônibus #${prefixo} salvo no MongoDB!`, "ok");
+    carregarFrota();
+  } catch (e) { toast(e.message, "err"); }
+}
+
+carregarFrota();
+</script>
+</body>
+</html>
